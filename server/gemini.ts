@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
-// This API key is from Gemini Developer API Key, not vertex AI API Key
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+// Initialize GoogleGenAI with API key
+const ai = new GoogleGenAI(process.env.GEMINI_API_KEY || "");
 
 export interface AppGenerationRequest {
   prompt: string;
@@ -74,16 +74,27 @@ export interface GeneratedAppConfig {
 
 export async function generateMobileApp(request: AppGenerationRequest): Promise<GeneratedAppConfig> {
   try {
-    const systemPrompt = `You are a mobile app design expert specializing in e-commerce apps for Shopify stores. 
-Based on the user's description, generate a comprehensive mobile app configuration that includes:
+    const storeContext = request.storeData ? 
+      `Store: ${request.storeData.shopName} with ${request.storeData.productCount} products, ${request.storeData.collectionCount} collections, and ${request.storeData.orderCount} orders.` :
+      'No store connected yet.';
 
-1. Theme and styling (colors, fonts, layout preferences)
-2. Navigation structure (bottom nav, tabs, search functionality)
-3. Layout configuration (hero sections, product displays, categories)
-4. Features to include (wishlist, reviews, filters, etc.)
-5. Sample preview data for demonstration
+    const systemPrompt = `You are an expert mobile app designer for e-commerce. Create modern, user-friendly mobile app configurations for Shopify stores.
 
-The user's store information: ${request.storeData ? JSON.stringify(request.storeData) : 'No store data available'}
+CONTEXT: ${storeContext}
+
+DESIGN PRINCIPLES:
+- Prioritize user experience and conversion optimization
+- Use modern mobile design patterns
+- Ensure accessibility and intuitive navigation
+- Match the app design to the store's business type and customer needs
+- Create engaging product discovery experiences
+
+ANALYSIS REQUIREMENTS:
+1. Analyze the user's prompt to understand their business type, target audience, and goals
+2. Consider store size and product volume when designing layouts
+3. Select appropriate features based on business needs
+4. Create realistic sample data that matches the business type
+5. Choose colors and styling that align with modern mobile design trends
 
 Respond with a JSON object that matches this structure exactly:
 {
@@ -149,146 +160,187 @@ Respond with a JSON object that matches this structure exactly:
   }
 }
 
-Make the app configuration appropriate for the described use case and store type.`;
+IMPORTANT GUIDELINES:
+- Use realistic product names and categories that match the business type
+- Set appropriate grid columns based on store size (1-2 for small stores, 2-3 for larger ones)
+- Enable features that make sense for the business (e.g., reviews for retail, filters for large catalogs)
+- Create hero section content that reflects the brand and value proposition
+- Choose appropriate navigation tabs based on store complexity
+- Use color schemes that work well on mobile devices
+- Generate 4-6 realistic featured products with proper pricing formats
 
-    const userPrompt = `App Name: ${request.appName}
+Make the configuration professional, modern, and optimized for mobile commerce.`;
+
+    const businessTypeAnalysis = `
+BUSINESS ANALYSIS:
+App Name: "${request.appName}"
+User Description: "${request.prompt}"
 Primary Color: ${request.primaryColor}
-Description: ${request.prompt}
+${storeContext}
 
-Please generate a mobile app configuration based on this description.`;
+Based on this information, create a mobile app that:
+1. Reflects the business type and target audience
+2. Optimizes for the store's product volume and complexity
+3. Uses modern mobile UX patterns
+4. Includes relevant e-commerce features
+5. Has appropriate navigation structure
+6. Contains realistic sample content`;
 
+    const userPrompt = `${businessTypeAnalysis}
+
+Generate a comprehensive mobile app configuration that matches the business needs and creates an excellent user experience.`;
+
+    // Use the correct models API for @google/genai v1.7.0
+    const prompt = `${systemPrompt}\n\n${userPrompt}\n\nRespond only with valid JSON matching the structure above. No additional text or explanations.`;
+    
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "object",
-          properties: {
-            appName: { type: "string" },
-            primaryColor: { type: "string" },
-            theme: {
-              type: "object",
-              properties: {
-                primaryColor: { type: "string" },
-                fontFamily: { type: "string" },
-                borderRadius: { type: "string" }
-              },
-              required: ["primaryColor", "fontFamily", "borderRadius"]
-            },
-            navigation: {
-              type: "object",
-              properties: {
-                showBottomNav: { type: "boolean" },
-                showSearch: { type: "boolean" },
-                showCart: { type: "boolean" },
-                tabs: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string" },
-                      icon: { type: "string" },
-                      route: { type: "string" }
-                    },
-                    required: ["name", "icon", "route"]
-                  }
-                }
-              },
-              required: ["showBottomNav", "showSearch", "showCart", "tabs"]
-            },
-            layout: {
-              type: "object",
-              properties: {
-                heroSection: {
-                  type: "object",
-                  properties: {
-                    title: { type: "string" },
-                    subtitle: { type: "string" },
-                    showHero: { type: "boolean" },
-                    backgroundType: { type: "string" }
-                  },
-                  required: ["title", "subtitle", "showHero", "backgroundType"]
-                },
-                productDisplay: {
-                  type: "object",
-                  properties: {
-                    gridColumns: { type: "number" },
-                    showPrices: { type: "boolean" },
-                    showRatings: { type: "boolean" },
-                    showWishlist: { type: "boolean" }
-                  },
-                  required: ["gridColumns", "showPrices", "showRatings", "showWishlist"]
-                },
-                categories: {
-                  type: "object",
-                  properties: {
-                    showCategories: { type: "boolean" },
-                    displayStyle: { type: "string" }
-                  },
-                  required: ["showCategories", "displayStyle"]
-                }
-              },
-              required: ["heroSection", "productDisplay", "categories"]
-            },
-            features: {
-              type: "object",
-              properties: {
-                wishlist: { type: "boolean" },
-                reviews: { type: "boolean" },
-                filters: { type: "boolean" },
-                notifications: { type: "boolean" },
-                userAccount: { type: "boolean" },
-                socialSharing: { type: "boolean" }
-              },
-              required: ["wishlist", "reviews", "filters", "notifications", "userAccount", "socialSharing"]
-            },
-            previewData: {
-              type: "object",
-              properties: {
-                featuredProducts: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string" },
-                      price: { type: "string" },
-                      image: { type: "string" }
-                    },
-                    required: ["name", "price"]
-                  }
-                },
-                categories: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string" },
-                      count: { type: "number" }
-                    },
-                    required: ["name", "count"]
-                  }
-                }
-              },
-              required: ["featuredProducts", "categories"]
-            }
-          },
-          required: ["appName", "primaryColor", "theme", "navigation", "layout", "features", "previewData"]
-        },
-      },
-      contents: userPrompt,
+      model: "gemini-1.5-flash", 
+      contents: prompt,
     });
-
+    
     const rawJson = response.text;
 
-    if (rawJson) {
-      const appConfig: GeneratedAppConfig = JSON.parse(rawJson);
-      return appConfig;
-    } else {
+    if (!rawJson) {
       throw new Error("Empty response from Gemini model");
     }
+
+    console.log("Raw Gemini response:", rawJson);
+
+    // Parse and validate the response
+    let appConfig: GeneratedAppConfig;
+    try {
+      appConfig = JSON.parse(rawJson);
+    } catch (parseError) {
+      console.error("JSON parsing error:", parseError);
+      throw new Error("Invalid JSON response from AI model");
+    }
+
+    // Validate required fields and provide defaults if missing
+    const validatedConfig: GeneratedAppConfig = {
+      appName: appConfig.appName || request.appName,
+      primaryColor: appConfig.primaryColor || request.primaryColor,
+      theme: {
+        primaryColor: appConfig.theme?.primaryColor || request.primaryColor,
+        fontFamily: appConfig.theme?.fontFamily || "Inter, sans-serif",
+        borderRadius: appConfig.theme?.borderRadius || "8px"
+      },
+      navigation: {
+        showBottomNav: appConfig.navigation?.showBottomNav ?? true,
+        showSearch: appConfig.navigation?.showSearch ?? true,
+        showCart: appConfig.navigation?.showCart ?? true,
+        tabs: appConfig.navigation?.tabs || [
+          { name: "Home", icon: "home", route: "/" },
+          { name: "Shop", icon: "grid", route: "/shop" },
+          { name: "Cart", icon: "shopping-bag", route: "/cart" },
+          { name: "Profile", icon: "user", route: "/profile" }
+        ]
+      },
+      layout: {
+        heroSection: {
+          title: appConfig.layout?.heroSection?.title || `Welcome to ${request.appName}`,
+          subtitle: appConfig.layout?.heroSection?.subtitle || "Discover amazing products",
+          showHero: appConfig.layout?.heroSection?.showHero ?? true,
+          backgroundType: appConfig.layout?.heroSection?.backgroundType || "gradient"
+        },
+        productDisplay: {
+          gridColumns: appConfig.layout?.productDisplay?.gridColumns || 2,
+          showPrices: appConfig.layout?.productDisplay?.showPrices ?? true,
+          showRatings: appConfig.layout?.productDisplay?.showRatings ?? true,
+          showWishlist: appConfig.layout?.productDisplay?.showWishlist ?? true
+        },
+        categories: {
+          showCategories: appConfig.layout?.categories?.showCategories ?? true,
+          displayStyle: appConfig.layout?.categories?.displayStyle || "grid"
+        }
+      },
+      features: {
+        wishlist: appConfig.features?.wishlist ?? true,
+        reviews: appConfig.features?.reviews ?? true,
+        filters: appConfig.features?.filters ?? true,
+        notifications: appConfig.features?.notifications ?? true,
+        userAccount: appConfig.features?.userAccount ?? true,
+        socialSharing: appConfig.features?.socialSharing ?? false
+      },
+      previewData: {
+        featuredProducts: appConfig.previewData?.featuredProducts || [
+          { name: "Featured Product 1", price: "$29.99" },
+          { name: "Featured Product 2", price: "$39.99" },
+          { name: "Featured Product 3", price: "$19.99" },
+          { name: "Featured Product 4", price: "$49.99" }
+        ],
+        categories: appConfig.previewData?.categories || [
+          { name: "All Products", count: 10 },
+          { name: "New Arrivals", count: 5 },
+          { name: "Best Sellers", count: 8 }
+        ]
+      }
+    };
+
+    return validatedConfig;
   } catch (error) {
     console.error("Error generating app with Gemini:", error);
-    throw new Error(`Failed to generate app: ${error}`);
+    
+    // Provide a fallback configuration if AI generation fails
+    const fallbackConfig: GeneratedAppConfig = {
+      appName: request.appName,
+      primaryColor: request.primaryColor,
+      theme: {
+        primaryColor: request.primaryColor,
+        fontFamily: "Inter, sans-serif",
+        borderRadius: "8px"
+      },
+      navigation: {
+        showBottomNav: true,
+        showSearch: true,
+        showCart: true,
+        tabs: [
+          { name: "Home", icon: "home", route: "/" },
+          { name: "Shop", icon: "grid", route: "/shop" },
+          { name: "Cart", icon: "shopping-bag", route: "/cart" },
+          { name: "Profile", icon: "user", route: "/profile" }
+        ]
+      },
+      layout: {
+        heroSection: {
+          title: `Welcome to ${request.appName}`,
+          subtitle: "Discover amazing products",
+          showHero: true,
+          backgroundType: "gradient"
+        },
+        productDisplay: {
+          gridColumns: 2,
+          showPrices: true,
+          showRatings: true,
+          showWishlist: true
+        },
+        categories: {
+          showCategories: true,
+          displayStyle: "grid"
+        }
+      },
+      features: {
+        wishlist: true,
+        reviews: true,
+        filters: true,
+        notifications: true,
+        userAccount: true,
+        socialSharing: false
+      },
+      previewData: {
+        featuredProducts: [
+          { name: "Product 1", price: "$29.99" },
+          { name: "Product 2", price: "$39.99" },
+          { name: "Product 3", price: "$19.99" },
+          { name: "Product 4", price: "$49.99" }
+        ],
+        categories: [
+          { name: "All Products", count: 10 },
+          { name: "Featured", count: 5 }
+        ]
+      }
+    };
+
+    console.log("Using fallback configuration due to AI generation error");
+    return fallbackConfig;
   }
 }

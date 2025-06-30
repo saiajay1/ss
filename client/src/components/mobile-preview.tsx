@@ -136,34 +136,39 @@ export default function MobilePreview({ generatedAppConfig }: MobilePreviewProps
                 </div>
 
                 {/* Bottom Navigation */}
-                <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2">
-                  <div className="flex justify-around">
-                    <div className="flex flex-col items-center py-1">
-                      <Home 
-                        className="h-4 w-4 text-sm" 
-                        style={{ color: previewData.primaryColor }}
-                      />
-                      <span 
-                        className="text-xs font-medium"
-                        style={{ color: previewData.primaryColor }}
-                      >
-                        Home
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-center py-1">
-                      <Grid3X3 className="h-4 w-4 text-gray-400 text-sm" />
-                      <span className="text-xs text-gray-400">Categories</span>
-                    </div>
-                    <div className="flex flex-col items-center py-1">
-                      <Heart className="h-4 w-4 text-gray-400 text-sm" />
-                      <span className="text-xs text-gray-400">Wishlist</span>
-                    </div>
-                    <div className="flex flex-col items-center py-1">
-                      <User className="h-4 w-4 text-gray-400 text-sm" />
-                      <span className="text-xs text-gray-400">Profile</span>
+                {(appConfig?.navigation?.showBottomNav ?? true) && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2">
+                    <div className="flex justify-around">
+                      {(appConfig?.navigation?.tabs || [
+                        { name: "Home", icon: "home", route: "/" },
+                        { name: "Shop", icon: "grid", route: "/shop" },
+                        { name: "Wishlist", icon: "heart", route: "/wishlist" },
+                        { name: "Profile", icon: "user", route: "/profile" }
+                      ]).slice(0, 4).map((tab: any, index: number) => {
+                        const IconComponent = tab.icon === "home" ? Home : 
+                                            tab.icon === "grid" ? Grid3X3 : 
+                                            tab.icon === "heart" ? Heart : 
+                                            tab.icon === "shopping-bag" ? ShoppingBag : User;
+                        const isActive = index === 0;
+                        
+                        return (
+                          <div key={index} className="flex flex-col items-center py-1">
+                            <IconComponent 
+                              className={`h-4 w-4 text-sm ${isActive ? '' : 'text-gray-400'}`}
+                              style={{ color: isActive ? (previewData?.primaryColor || '#4F46E5') : undefined }}
+                            />
+                            <span 
+                              className={`text-xs ${isActive ? 'font-medium' : 'text-gray-400'}`}
+                              style={{ color: isActive ? (previewData?.primaryColor || '#4F46E5') : undefined }}
+                            >
+                              {tab.name}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
