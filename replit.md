@@ -108,6 +108,9 @@ The application uses three main entities:
 - June 30, 2025: Added functional Shopify store connection with form validation
 - June 30, 2025: Enhanced mobile preview with AI-generated app configurations
 - June 30, 2025: Implemented real-time app generation with status tracking
+- June 30, 2025: Migrated from Replit Agent to Replit environment
+- June 30, 2025: Fixed Google AI authentication and JSON parsing issues
+- June 30, 2025: Resolved code generation viewer JavaScript errors
 
 ## Current Status
 

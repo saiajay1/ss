@@ -296,9 +296,9 @@ export default function CodeGenerationViewer({ isGenerating, onComplete }: CodeG
                   <div 
                     key={index}
                     className={`leading-6 ${
-                      line.startsWith("//") ? "text-gray-500 italic" : 
-                      line.includes("import") || line.includes("export") ? "text-blue-600" :
-                      line.includes("const") || line.includes("function") ? "text-purple-600" :
+                      line && line.startsWith("//") ? "text-gray-500 italic" : 
+                      line && (line.includes("import") || line.includes("export")) ? "text-blue-600" :
+                      line && (line.includes("const") || line.includes("function")) ? "text-purple-600" :
                       "text-gray-800"
                     }`}
                   >
