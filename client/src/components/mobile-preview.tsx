@@ -16,18 +16,22 @@ export default function MobilePreview({ generatedAppConfig }: MobilePreviewProps
   // Use generated config if available, otherwise get from apps
   const previewApp = apps && Array.isArray(apps) ? apps.find((app: any) => app.status === "ready") : null;
   const appConfig = generatedAppConfig || previewApp?.appConfig;
-  const previewData = generatedAppConfig || previewApp?.previewData || {
+  
+  // Create proper preview data structure
+  const defaultData = {
     appName: "Your App",
     primaryColor: "#4F46E5",
-    featuredProducts: [
-      { name: "Connect your store", price: "$0.00" },
-      { name: "Generate an app", price: "$0.00" },
-    ],
     heroSection: {
       title: "Welcome",
       subtitle: "Create your first app",
     },
+    featuredProducts: [
+      { name: "Connect your store", price: "$0.00" },
+      { name: "Generate an app", price: "$0.00" },
+    ],
   };
+  
+  const previewData = generatedAppConfig || previewApp?.previewData || appConfig || defaultData;
 
   return (
     <Card className="sticky top-24">
@@ -70,13 +74,13 @@ export default function MobilePreview({ generatedAppConfig }: MobilePreviewProps
                 <div 
                   className="relative h-32"
                   style={{ 
-                    background: `linear-gradient(to right, ${previewData.primaryColor}, ${previewData.primaryColor}cc)` 
+                    background: `linear-gradient(to right, ${previewData?.primaryColor || '#4F46E5'}, ${previewData?.primaryColor || '#4F46E5'}cc)` 
                   }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center text-white">
-                      <h2 className="font-bold text-lg">{previewData.heroSection.title}</h2>
-                      <p className="text-sm opacity-90">{previewData.heroSection.subtitle}</p>
+                      <h2 className="font-bold text-lg">{previewData?.heroSection?.title || 'Welcome'}</h2>
+                      <p className="text-sm opacity-90">{previewData?.heroSection?.subtitle || 'Create your first app'}</p>
                     </div>
                   </div>
                 </div>
@@ -85,18 +89,18 @@ export default function MobilePreview({ generatedAppConfig }: MobilePreviewProps
                 <div className="p-4 flex-1 overflow-y-auto">
                   <h3 className="font-semibold mb-3">Featured Products</h3>
                   <div className="grid grid-cols-2 gap-3">
-                    {previewData.featuredProducts.map((product: any, index: number) => (
+                    {(previewData?.featuredProducts || []).map((product: any, index: number) => (
                       <div key={index} className="bg-gray-50 rounded-lg p-2">
                         <div className="bg-gray-200 h-20 rounded mb-2 flex items-center justify-center">
                           <div className="w-8 h-8 bg-gray-300 rounded"></div>
                         </div>
-                        <p className="text-xs font-medium truncate">{product.name}</p>
+                        <p className="text-xs font-medium truncate">{product?.name || 'Product'}</p>
                         <div className="flex items-center justify-between mt-1">
                           <p 
                             className="text-xs font-semibold"
-                            style={{ color: previewData.primaryColor }}
+                            style={{ color: previewData?.primaryColor || '#4F46E5' }}
                           >
-                            {product.price}
+                            {product?.price || '$0.00'}
                           </p>
                           {appConfig?.layout?.productDisplay?.showRatings && (
                             <div className="flex items-center">
