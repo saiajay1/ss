@@ -21,11 +21,39 @@ export default function MobilePreview({ generatedAppConfig }: MobilePreviewProps
     retry: false,
   });
 
-  // Use generated config if available, otherwise get from apps
-  const previewApp = apps && Array.isArray(apps) ? apps.find((app: any) => app.status === "ready") : null;
-  const appConfig = generatedAppConfig || previewApp?.appConfig;
+  // Parse app config data properly
+  let parsedConfig = null;
   
-  // Create proper preview data structure
+  if (generatedAppConfig) {
+    // If generatedAppConfig is passed directly from generated-apps component
+    if (generatedAppConfig.appConfig) {
+      try {
+        parsedConfig = typeof generatedAppConfig.appConfig === 'string' 
+          ? JSON.parse(generatedAppConfig.appConfig) 
+          : generatedAppConfig.appConfig;
+      } catch (e) {
+        console.error('Failed to parse app config:', e);
+        parsedConfig = null;
+      }
+    } else {
+      // If it's the config object itself
+      parsedConfig = generatedAppConfig;
+    }
+  } else {
+    const previewApp = apps && Array.isArray(apps) ? apps.find((app: any) => app.status === "ready") : null;
+    if (previewApp?.appConfig) {
+      try {
+        parsedConfig = typeof previewApp.appConfig === 'string' 
+          ? JSON.parse(previewApp.appConfig) 
+          : previewApp.appConfig;
+      } catch (e) {
+        console.error('Failed to parse app config:', e);
+        parsedConfig = null;
+      }
+    }
+  }
+  
+  // Create proper preview data structure with fallbacks
   const defaultData = {
     appName: "Your Store",
     primaryColor: "#6366F1",
@@ -47,7 +75,39 @@ export default function MobilePreview({ generatedAppConfig }: MobilePreviewProps
     ]
   };
   
-  const previewData = generatedAppConfig || previewApp?.previewData || appConfig || defaultData;
+  // Merge parsed config with defaults, ensuring robust fallbacks
+  const previewData = {
+    appName: parsedConfig?.appName || defaultData.appName,
+    primaryColor: parsedConfig?.primaryColor || parsedConfig?.theme?.primaryColor || defaultData.primaryColor,
+    heroSection: {
+      title: parsedConfig?.layout?.heroSection?.title || parsedConfig?.heroSection?.title || defaultData.heroSection.title,
+      subtitle: parsedConfig?.layout?.heroSection?.subtitle || parsedConfig?.heroSection?.subtitle || defaultData.heroSection.subtitle,
+    },
+    featuredProducts: (() => {
+      const products = parsedConfig?.previewData?.featuredProducts || parsedConfig?.featuredProducts;
+      if (products && Array.isArray(products)) {
+        return products.map((product: any, index: number) => ({
+          id: product.id || `${index + 1}`,
+          name: product.name || `Product ${index + 1}`,
+          price: product.price || "$0.00",
+          rating: product.rating || 4.5,
+          image: product.image || null
+        }));
+      }
+      return defaultData.featuredProducts;
+    })(),
+    categories: (() => {
+      const categories = parsedConfig?.previewData?.categories || parsedConfig?.categories;
+      if (categories && Array.isArray(categories)) {
+        return categories.map((category: any, index: number) => ({
+          name: category.name || `Category ${index + 1}`,
+          count: category.count || 0,
+          icon: category.icon || "📦"
+        }));
+      }
+      return defaultData.categories;
+    })()
+  };
 
   const handleProductPress = (product: any) => {
     setSelectedProduct(product);

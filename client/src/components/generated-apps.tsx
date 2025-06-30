@@ -103,7 +103,7 @@ export default function GeneratedApps() {
           </TabsList>
 
           <TabsContent value="preview" className="mt-6">
-            <MobilePreview generatedAppConfig={selectedApp.appConfig} />
+            <MobilePreview generatedAppConfig={selectedApp} />
           </TabsContent>
 
           <TabsContent value="modify" className="mt-6">
