@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertShopifyStoreSchema, insertGeneratedAppSchema } from "@shared/schema";
 import { generateMobileApp } from "./gemini";
+import { createShopifyAPI } from "./shopify";
 import { z } from "zod";
 
 const shopifyConnectSchema = z.object({
@@ -56,21 +57,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/shopify/connect', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const storeData = shopifyConnectSchema.parse(req.body);
+      const validatedData = shopifyConnectSchema.parse(req.body);
       
-      const store = await storage.createShopifyStore({
-        userId,
-        ...storeData,
-      });
+      console.log(`Connecting Shopify store for user ${userId}: ${validatedData.shopifyDomain}`);
       
-      res.json(store);
+      // Initialize Shopify API and validate connection
+      const shopifyAPI = createShopifyAPI(validatedData.shopifyDomain, validatedData.accessToken);
+      
+      const isValid = await shopifyAPI.validateConnection();
+      if (!isValid) {
+        return res.status(400).json({ 
+          message: "Invalid Shopify domain or access token. Please check your credentials." 
+        });
+      }
+      
+      // Fetch complete store data from Shopify
+      console.log("Fetching complete store data from Shopify...");
+      const storeData = await shopifyAPI.getAllStoreData();
+      
+      // Check if store already exists for this user
+      const existingStore = await storage.getShopifyStore(userId);
+      if (existingStore) {
+        // Update existing store with real Shopify data
+        const updatedStore = await storage.updateShopifyStore(existingStore.id, {
+          shopifyDomain: validatedData.shopifyDomain,
+          accessToken: validatedData.accessToken,
+          shopName: storeData.store.name,
+          email: storeData.store.email,
+          currency: storeData.store.currency,
+          timezone: storeData.store.timezone,
+          countryName: storeData.store.country_name,
+          province: storeData.store.province,
+          city: storeData.store.city,
+          phone: storeData.store.phone,
+          description: storeData.store.description,
+          productCount: storeData.totalProducts,
+          collectionCount: storeData.totalCollections,
+          orderCount: storeData.totalOrders,
+          storeData: storeData, // Store complete data for app generation
+          lastSyncAt: new Date(),
+        });
+        
+        console.log(`Updated store data: ${storeData.totalProducts} products, ${storeData.totalCollections} collections`);
+        res.json(updatedStore);
+      } else {
+        // Create new store with real Shopify data
+        const newStore = await storage.createShopifyStore({
+          userId,
+          shopifyDomain: validatedData.shopifyDomain,
+          accessToken: validatedData.accessToken,
+          shopName: storeData.store.name,
+          email: storeData.store.email,
+          currency: storeData.store.currency,
+          timezone: storeData.store.timezone,
+          countryName: storeData.store.country_name,
+          province: storeData.store.province,
+          city: storeData.store.city,
+          phone: storeData.store.phone,
+          description: storeData.store.description,
+          productCount: storeData.totalProducts,
+          collectionCount: storeData.totalCollections,
+          orderCount: storeData.totalOrders,
+          storeData: storeData, // Store complete data for app generation
+          lastSyncAt: new Date(),
+        });
+        
+        console.log(`Created new store: ${storeData.totalProducts} products, ${storeData.totalCollections} collections`);
+        res.json(newStore);
+      }
     } catch (error) {
       console.error("Error connecting Shopify store:", error);
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid store data", errors: error.errors });
-      } else {
-        res.status(500).json({ message: "Failed to connect store" });
+      res.status(400).json({ 
+        message: error instanceof Error ? error.message : "Failed to connect store" 
+      });
+    }
+  });
+
+  // Sync Shopify store data
+  app.post('/api/shopify/sync', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const store = await storage.getShopifyStore(userId);
+      
+      if (!store) {
+        return res.status(404).json({ message: "No Shopify store connected" });
       }
+      
+      console.log(`Syncing Shopify data for ${store.shopName}...`);
+      
+      // Re-fetch store data from Shopify
+      const shopifyAPI = createShopifyAPI(store.shopifyDomain, store.accessToken);
+      const storeData = await shopifyAPI.getAllStoreData();
+      
+      // Update store with fresh data
+      const updatedStore = await storage.updateShopifyStore(store.id, {
+        shopName: storeData.store.name,
+        email: storeData.store.email,
+        currency: storeData.store.currency,
+        timezone: storeData.store.timezone,
+        countryName: storeData.store.country_name,
+        province: storeData.store.province,
+        city: storeData.store.city,
+        phone: storeData.store.phone,
+        description: storeData.store.description,
+        productCount: storeData.totalProducts,
+        collectionCount: storeData.totalCollections,
+        orderCount: storeData.totalOrders,
+        storeData: storeData,
+        lastSyncAt: new Date(),
+      });
+      
+      console.log(`Sync complete: ${storeData.totalProducts} products, ${storeData.totalCollections} collections`);
+      res.json(updatedStore);
+    } catch (error) {
+      console.error("Error syncing Shopify store:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to sync store" 
+      });
     }
   });
 
@@ -102,18 +205,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "processing",
       });
 
-      // Generate app using Gemini AI
+      // Generate app using Gemini AI with real Shopify data
       setTimeout(async () => {
         try {
           const aiConfig = await generateMobileApp({
             prompt: appData.prompt,
             appName: appData.name,
             primaryColor: appData.primaryColor,
-            storeData: store ? {
+            storeData: store && store.storeData ? {
               shopName: store.shopName,
               productCount: store.productCount || 0,
               collectionCount: store.collectionCount || 0,
               orderCount: store.orderCount || 0,
+              realProducts: (store.storeData as any)?.products || [],
+              realCollections: (store.storeData as any)?.collections || [],
+              storeInfo: (store.storeData as any)?.store || null,
             } : undefined,
           });
 

@@ -15,6 +15,35 @@ export interface AppGenerationRequest {
     productCount: number;
     collectionCount: number;
     orderCount: number;
+    realProducts?: Array<{
+      id: string;
+      title: string;
+      handle: string;
+      vendor: string;
+      product_type: string;
+      tags: string[];
+      images: Array<{ src: string; alt?: string; }>;
+      variants: Array<{
+        id: string;
+        title: string;
+        price: string;
+        compare_at_price?: string;
+      }>;
+    }>;
+    realCollections?: Array<{
+      id: string;
+      title: string;
+      handle: string;
+      description?: string;
+      products_count: number;
+    }>;
+    storeInfo?: {
+      name: string;
+      email: string;
+      currency: string;
+      country_name: string;
+      description?: string;
+    };
   };
 }
 
@@ -77,13 +106,39 @@ export interface GeneratedAppConfig {
 
 export async function generateMobileApp(request: AppGenerationRequest): Promise<GeneratedAppConfig> {
   try {
-    const storeContext = request.storeData ? 
-      `Store: ${request.storeData.shopName} with ${request.storeData.productCount} products, ${request.storeData.collectionCount} collections, and ${request.storeData.orderCount} orders.` :
-      'No store connected yet.';
+    // Build detailed store context with real data
+    let storeContext = 'No store connected yet.';
+    let realProductsContext = '';
+    let realCategoriesContext = '';
+    
+    if (request.storeData) {
+      storeContext = `Store: ${request.storeData.shopName} with ${request.storeData.productCount} products, ${request.storeData.collectionCount} collections, and ${request.storeData.orderCount} orders.`;
+      
+      if (request.storeData.storeInfo) {
+        storeContext += ` Located in ${request.storeData.storeInfo.country_name}, using ${request.storeData.storeInfo.currency} currency.`;
+      }
+      
+      // Include real products
+      if (request.storeData.realProducts && request.storeData.realProducts.length > 0) {
+        realProductsContext = '\n\nREAL PRODUCTS TO FEATURE:';
+        request.storeData.realProducts.slice(0, 8).forEach(product => {
+          const price = product.variants[0]?.price || '0';
+          realProductsContext += `\n- ${product.title}: $${price} (${product.product_type})`;
+        });
+      }
+      
+      // Include real collections
+      if (request.storeData.realCollections && request.storeData.realCollections.length > 0) {
+        realCategoriesContext = '\n\nREAL COLLECTIONS TO INCLUDE:';
+        request.storeData.realCollections.forEach(collection => {
+          realCategoriesContext += `\n- ${collection.title}: ${collection.products_count} products`;
+        });
+      }
+    }
 
     const systemPrompt = `You are an expert mobile app designer for e-commerce. Create modern, user-friendly mobile app configurations for Shopify stores.
 
-CONTEXT: ${storeContext}
+CONTEXT: ${storeContext}${realProductsContext}${realCategoriesContext}
 
 DESIGN PRINCIPLES:
 - Prioritize user experience and conversion optimization
@@ -92,11 +147,13 @@ DESIGN PRINCIPLES:
 - Match the app design to the store's business type and customer needs
 - Create engaging product discovery experiences
 
+CRITICAL REQUIREMENT: Use REAL store data when available. Include actual product names, collection titles, and store information in the generated configuration. Never use generic placeholder data when real data is provided.
+
 ANALYSIS REQUIREMENTS:
 1. Analyze the user's prompt to understand their business type, target audience, and goals
 2. Consider store size and product volume when designing layouts
 3. Select appropriate features based on business needs
-4. Create realistic sample data that matches the business type
+4. Use REAL product names and collection names in featuredProducts and categories arrays
 5. Choose colors and styling that align with modern mobile design trends
 
 Respond with a JSON object that matches this structure exactly:
