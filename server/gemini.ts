@@ -212,7 +212,15 @@ Generate a comprehensive mobile app configuration that matches the business need
     // Parse and validate the response
     let appConfig: GeneratedAppConfig;
     try {
-      appConfig = JSON.parse(rawJson);
+      // Clean the response - remove markdown code blocks if present
+      let cleanedJson = rawJson.trim();
+      if (cleanedJson.startsWith('```json')) {
+        cleanedJson = cleanedJson.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanedJson.startsWith('```')) {
+        cleanedJson = cleanedJson.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      appConfig = JSON.parse(cleanedJson);
     } catch (parseError) {
       console.error("JSON parsing error:", parseError);
       throw new Error("Invalid JSON response from AI model");
