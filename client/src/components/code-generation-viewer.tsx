@@ -20,7 +20,9 @@ export default function CodeGenerationViewer({ isGenerating, onComplete }: CodeG
   const [linesPerSecond, setLinesPerSecond] = useState<number>(8);
   const [currentTypingLine, setCurrentTypingLine] = useState<string>("");
   const [showCursor, setShowCursor] = useState<boolean>(true);
+  const [currentLineIndex, setCurrentLineIndex] = useState<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const codeContainerRef = useRef<HTMLDivElement>(null);
 
   // Simulate realistic code generation with typing effect
   useEffect(() => {
@@ -30,6 +32,7 @@ export default function CodeGenerationViewer({ isGenerating, onComplete }: CodeG
       setGenerationPhase("analyzing");
       setProgress(0);
       setCurrentTypingLine("");
+      setCurrentLineIndex(0);
       setCurrentStep("Ready");
       return;
     }
@@ -437,7 +440,7 @@ export default function CodeGenerationViewer({ isGenerating, onComplete }: CodeG
       setCurrentStep(currentPhase.message);
     };
 
-    // Typing animation
+    // Enhanced typing animation with smooth scrolling
     const typeCode = () => {
       if (lineIndex >= codeTemplate.length) {
         updatePhase();
@@ -447,32 +450,54 @@ export default function CodeGenerationViewer({ isGenerating, onComplete }: CodeG
       const currentLine = codeTemplate[lineIndex];
       
       if (charIndex >= currentLine.length) {
+        // Complete current line and move to next
         setCodeLines(prev => [...prev, currentTypingLine]);
         setCurrentTypingLine("");
+        setCurrentLineIndex(lineIndex + 1);
         lineIndex++;
         charIndex = 0;
         
-        // Scroll to bottom
+        // Smooth scroll to follow the cursor
         setTimeout(() => {
-          scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          if (codeContainerRef.current) {
+            const container = codeContainerRef.current;
+            const lineHeight = 24; // Line height in pixels
+            const scrollTop = Math.max(0, (lineIndex - 10) * lineHeight); // Keep 10 lines visible above cursor
+            container.scrollTo({
+              top: scrollTop,
+              behavior: 'smooth'
+            });
+          }
         }, 50);
       } else {
+        // Continue typing current line
         setCurrentTypingLine(currentLine.substring(0, charIndex + 1));
         charIndex++;
+        setCurrentLineIndex(lineIndex);
       }
       
       updatePhase();
     };
 
-    // Control typing speed based on phase
+    // Control typing speed based on phase and content
     const getTypingSpeed = () => {
-      switch (generationPhase) {
-        case "analyzing": return 100;
-        case "designing": return 80;
-        case "coding": return 45;
-        case "optimizing": return 60;
-        default: return 50;
-      }
+      const speeds: Record<string, number> = {
+        analyzing: 120,
+        designing: 90,
+        coding: 35,
+        optimizing: 70,
+        complete: 50,
+      };
+      const baseSpeed = speeds[generationPhase] || 50;
+      
+      // Vary speed based on content being typed
+      const currentLine = codeTemplate[lineIndex] || "";
+      if (currentLine.startsWith("//")) return baseSpeed + 20; // Comments slower
+      if (currentLine.includes("import") || currentLine.includes("export")) return baseSpeed - 10; // Imports faster
+      if (currentLine.trim() === "") return 20; // Empty lines very fast
+      if (currentLine.includes("{") || currentLine.includes("}")) return baseSpeed + 15; // Braces slower
+      
+      return baseSpeed;
     };
 
     const interval = setInterval(typeCode, getTypingSpeed());
@@ -555,34 +580,76 @@ export default function CodeGenerationViewer({ isGenerating, onComplete }: CodeG
           </TabsList>
           
           <TabsContent value="code" className="h-[500px] mx-6">
-            <ScrollArea className="h-full">
-              <div className="bg-gray-900 rounded-lg p-4 font-mono text-sm overflow-hidden">
-                {codeLines.map((line, index) => (
-                  <div 
-                    key={index}
-                    className={`leading-6 ${
-                      line && line.startsWith("//") ? "text-gray-400 italic" : 
-                      line && (line.includes("import") || line.includes("export")) ? "text-blue-300" :
-                      line && (line.includes("const") || line.includes("function")) ? "text-purple-300" :
-                      line && line.includes("styles") ? "text-yellow-300" :
-                      "text-gray-100"
-                    }`}
-                  >
-                    {line || "\u00A0"}
-                  </div>
-                ))}
+            <div 
+              ref={codeContainerRef}
+              className="h-full bg-gray-900 rounded-lg p-4 font-mono text-sm overflow-auto scroll-smooth"
+              style={{ scrollBehavior: 'smooth' }}
+            >
+              {/* Line numbers and code content */}
+              <div className="flex">
+                {/* Line numbers */}
+                <div className="text-gray-500 text-right pr-4 select-none min-w-[3rem] flex-shrink-0">
+                  {codeLines.map((_, index) => (
+                    <div key={index} className="leading-6 h-6">
+                      {index + 1}
+                    </div>
+                  ))}
+                  {/* Current line number */}
+                  {isGenerating && currentTypingLine && (
+                    <div className="leading-6 h-6 text-blue-400 font-bold">
+                      {currentLineIndex + 1}
+                    </div>
+                  )}
+                </div>
                 
-                {/* Current typing line */}
-                {isGenerating && currentTypingLine && (
-                  <div className="leading-6 text-gray-100 flex">
-                    <span>{currentTypingLine}</span>
-                    {showCursor && <span className="bg-blue-400 w-2 h-5 inline-block ml-1 animate-pulse"></span>}
-                  </div>
-                )}
-                
-                <div ref={scrollRef} />
+                {/* Code content */}
+                <div className="flex-1">
+                  {codeLines.map((line, index) => (
+                    <div 
+                      key={index}
+                      className={`leading-6 h-6 ${
+                        line && line.startsWith("//") ? "text-gray-400 italic" : 
+                        line && (line.includes("import") || line.includes("export")) ? "text-blue-300" :
+                        line && (line.includes("const") || line.includes("function")) ? "text-purple-300" :
+                        line && line.includes("styles") ? "text-yellow-300" :
+                        line && (line.includes("=") || line.includes(":")) ? "text-green-300" :
+                        line && (line.includes("(") || line.includes(")")) ? "text-orange-300" :
+                        "text-gray-100"
+                      }`}
+                    >
+                      {line || "\u00A0"}
+                    </div>
+                  ))}
+                  
+                  {/* Current typing line with animated cursor */}
+                  {isGenerating && (
+                    <div className="leading-6 h-6 flex items-center">
+                      <span className={`${
+                        currentTypingLine && currentTypingLine.startsWith("//") ? "text-gray-400 italic" : 
+                        currentTypingLine && (currentTypingLine.includes("import") || currentTypingLine.includes("export")) ? "text-blue-300" :
+                        currentTypingLine && (currentTypingLine.includes("const") || currentTypingLine.includes("function")) ? "text-purple-300" :
+                        currentTypingLine && currentTypingLine.includes("styles") ? "text-yellow-300" :
+                        currentTypingLine && (currentTypingLine.includes("=") || currentTypingLine.includes(":")) ? "text-green-300" :
+                        currentTypingLine && (currentTypingLine.includes("(") || currentTypingLine.includes(")")) ? "text-orange-300" :
+                        "text-gray-100"
+                      }`}>
+                        {currentTypingLine}
+                      </span>
+                      {showCursor && (
+                        <span className="bg-blue-400 w-2 h-5 inline-block ml-1 animate-pulse rounded-sm"></span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Empty lines for better visibility */}
+                  {isGenerating && (
+                    <div className="h-32"></div>
+                  )}
+                </div>
               </div>
-            </ScrollArea>
+              
+              <div ref={scrollRef} />
+            </div>
           </TabsContent>
           
           <TabsContent value="preview" className="h-[500px] mx-6">
