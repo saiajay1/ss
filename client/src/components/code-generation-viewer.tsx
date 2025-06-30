@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { Code, Eye, Loader2, Zap, CheckCircle, Clock, Cpu, Terminal } from "lucide-react";
+import { Code, Eye, Loader2, Zap, CheckCircle, Clock, Cpu, Terminal, FileCode, Smartphone } from "lucide-react";
 
 interface CodeGenerationViewerProps {
   isGenerating: boolean;
@@ -12,670 +12,585 @@ interface CodeGenerationViewerProps {
 }
 
 export default function CodeGenerationViewer({ isGenerating, onComplete }: CodeGenerationViewerProps) {
-  const [codeLines, setCodeLines] = useState<string[]>([]);
-  const [currentStep, setCurrentStep] = useState<string>("Initializing...");
+  const [displayedCode, setDisplayedCode] = useState<string>("");
+  const [currentStep, setCurrentStep] = useState<string>("Ready to generate...");
   const [generationPhase, setGenerationPhase] = useState<"analyzing" | "designing" | "coding" | "optimizing" | "complete">("analyzing");
-  const [completedComponents, setCompletedComponents] = useState<string[]>([]);
+  const [completedFiles, setCompletedFiles] = useState<string[]>([]);
   const [progress, setProgress] = useState<number>(0);
-  const [linesPerSecond, setLinesPerSecond] = useState<number>(8);
-  const [currentTypingLine, setCurrentTypingLine] = useState<string>("");
+  const [currentLine, setCurrentLine] = useState<number>(1);
   const [showCursor, setShowCursor] = useState<boolean>(true);
-  const [currentLineIndex, setCurrentLineIndex] = useState<number>(0);
+  const [activeFile, setActiveFile] = useState<string>("App.tsx");
   const scrollRef = useRef<HTMLDivElement>(null);
-  const codeContainerRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
-  // Simulate realistic code generation with typing effect
+  // React Native code template for live typing
+  const codeTemplate = `import React from 'react';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+
+// App Theme Configuration
+const AppTheme = {
+  primary: '#6366F1',
+  secondary: '#8B5CF6',
+  background: '#FFFFFF',
+  surface: '#F8FAFC',
+  text: '#1E293B',
+  textSecondary: '#64748B',
+  success: '#10B981',
+  radius: 12,
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+  }
+};
+
+// Navigation Header Component
+const NavigationHeader = ({ title, onSearchPress, onCartPress }) => {
+  return (
+    <LinearGradient
+      colors={[AppTheme.primary, AppTheme.secondary]}
+      style={styles.navigationHeader}
+    >
+      <SafeAreaView>
+        <View style={styles.headerContent}>
+          <Text style={styles.navigationTitle}>{title}</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              style={styles.headerButton} 
+              onPress={onSearchPress}
+            >
+              <Ionicons name="search" size={20} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.headerButton} 
+              onPress={onCartPress}
+            >
+              <Ionicons name="bag" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
+  );
+};
+
+// Product Card Component
+const ProductCard = ({ product, onPress }) => {
+  return (
+    <TouchableOpacity style={styles.productCard} onPress={() => onPress(product)}>
+      <View style={styles.productImageContainer}>
+        <LinearGradient
+          colors={['#F1F5F9', '#E2E8F0']}
+          style={styles.productImagePlaceholder}
+        >
+          <Ionicons name="cube" size={32} color={AppTheme.textSecondary} />
+        </LinearGradient>
+      </View>
+      <View style={styles.productInfo}>
+        <Text style={styles.productName} numberOfLines={2}>
+          {product.name}
+        </Text>
+        <View style={styles.productRating}>
+          <Text style={styles.ratingStars}>⭐⭐⭐⭐⭐</Text>
+          <Text style={styles.ratingText}>(4.8)</Text>
+        </View>
+        <Text style={styles.productPrice}>{product.price}</Text>
+        <TouchableOpacity style={styles.addToCartButton}>
+          <Text style={styles.addToCartText}>Add to Cart</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// Hero Section Component
+const HeroSection = ({ title, subtitle, onShopNowPress }) => {
+  return (
+    <LinearGradient
+      colors={['rgba(99, 102, 241, 0.1)', 'rgba(139, 92, 246, 0.1)']}
+      style={styles.heroSection}
+    >
+      <View style={styles.heroContent}>
+        <Text style={styles.heroTitle}>{title}</Text>
+        <Text style={styles.heroSubtitle}>{subtitle}</Text>
+        <TouchableOpacity style={styles.heroButton} onPress={onShopNowPress}>
+          <LinearGradient
+            colors={[AppTheme.primary, AppTheme.secondary]}
+            style={styles.heroButtonGradient}
+          >
+            <Text style={styles.heroButtonText}>Shop Now</Text>
+            <Ionicons name="arrow-forward" size={16} color="white" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </LinearGradient>
+  );
+};
+
+// Main App Component
+const MobileApp = () => {
+  const sampleProducts = [
+    { 
+      id: '1',
+      name: 'Premium Wireless Headphones', 
+      price: '$299.99'
+    },
+    { 
+      id: '2',
+      name: 'Smart Fitness Tracker', 
+      price: '$199.99'
+    },
+    { 
+      id: '3',
+      name: 'Portable Bluetooth Speaker', 
+      price: '$89.99'
+    },
+    { 
+      id: '4',
+      name: 'Wireless Charging Pad', 
+      price: '$49.99'
+    },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <NavigationHeader 
+        title="Your Store"
+        onSearchPress={() => console.log('Search pressed')}
+        onCartPress={() => console.log('Cart pressed')}
+      />
+      
+      <ScrollView 
+        style={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+      >
+        <HeroSection 
+          title="Welcome to Your Store"
+          subtitle="Discover amazing products at unbeatable prices"
+          onShopNowPress={() => console.log('Shop now pressed')}
+        />
+
+        <View style={styles.productsSection}>
+          <Text style={styles.sectionTitle}>Featured Products</Text>
+          <View style={styles.productsGrid}>
+            {sampleProducts.map((product) => (
+              <ProductCard 
+                key={product.id} 
+                product={product}
+                onPress={() => console.log('Product pressed:', product.name)}
+              />
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
+
+// Comprehensive Styling
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: AppTheme.background,
+  },
+  navigationHeader: {
+    paddingTop: 0,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: AppTheme.spacing.md,
+    paddingVertical: AppTheme.spacing.md,
+  },
+  navigationTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: 'white',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: AppTheme.spacing.sm,
+  },
+  headerButton: {
+    padding: AppTheme.spacing.sm,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  heroSection: {
+    margin: AppTheme.spacing.md,
+    borderRadius: AppTheme.radius,
+    overflow: 'hidden',
+  },
+  heroContent: {
+    padding: AppTheme.spacing.xl,
+    alignItems: 'center',
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: AppTheme.text,
+    textAlign: 'center',
+    marginBottom: AppTheme.spacing.sm,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    color: AppTheme.textSecondary,
+    textAlign: 'center',
+    marginBottom: AppTheme.spacing.lg,
+  },
+  heroButton: {
+    borderRadius: AppTheme.radius,
+    overflow: 'hidden',
+  },
+  heroButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: AppTheme.spacing.lg,
+    paddingVertical: AppTheme.spacing.md,
+    gap: AppTheme.spacing.sm,
+  },
+  heroButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  productsSection: {
+    marginBottom: AppTheme.spacing.lg,
+    paddingHorizontal: AppTheme.spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: AppTheme.text,
+    marginBottom: AppTheme.spacing.md,
+  },
+  productsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  productCard: {
+    width: '48%',
+    backgroundColor: AppTheme.surface,
+    borderRadius: AppTheme.radius,
+    marginBottom: AppTheme.spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  productImageContainer: {
+    position: 'relative',
+  },
+  productImagePlaceholder: {
+    height: 120,
+    borderTopLeftRadius: AppTheme.radius,
+    borderTopRightRadius: AppTheme.radius,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productInfo: {
+    padding: AppTheme.spacing.md,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppTheme.text,
+    marginBottom: AppTheme.spacing.xs,
+    lineHeight: 18,
+  },
+  productRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: AppTheme.spacing.sm,
+  },
+  ratingStars: {
+    fontSize: 12,
+    marginRight: AppTheme.spacing.xs,
+  },
+  ratingText: {
+    fontSize: 12,
+    color: AppTheme.textSecondary,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AppTheme.primary,
+    marginBottom: AppTheme.spacing.sm,
+  },
+  addToCartButton: {
+    backgroundColor: AppTheme.primary,
+    borderRadius: AppTheme.radius / 2,
+    paddingVertical: AppTheme.spacing.sm,
+    alignItems: 'center',
+  },
+  addToCartText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+});
+
+export default MobileApp;`;
+
+  // Cursor blinking effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setShowCursor(prev => !prev);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [displayedCode]);
+
+  // Live typing simulation
   useEffect(() => {
     if (!isGenerating) {
-      setCodeLines([]);
-      setCompletedComponents([]);
+      setDisplayedCode("");
+      setCompletedFiles([]);
       setGenerationPhase("analyzing");
       setProgress(0);
-      setCurrentTypingLine("");
-      setCurrentLineIndex(0);
-      setCurrentStep("Ready");
+      setCurrentLine(1);
+      setCurrentStep("Ready to generate...");
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       return;
     }
 
-    let lineIndex = 0;
     let charIndex = 0;
-    const startTime = Date.now();
-    
-    const codeTemplate = [
-      "// 🚀 Generating your mobile app...",
-      "",
-      "import React from 'react';",
-      "import { StyleSheet, View, Text, ScrollView, Image, TouchableOpacity } from 'react-native';",
-      "import { LinearGradient } from 'expo-linear-gradient';",
-      "",
-      "// 🎨 App Theme Configuration",
-      "const AppTheme = {",
-      "  primary: '#6366F1',",
-      "  secondary: '#8B5CF6',",
-      "  background: '#FFFFFF',",
-      "  surface: '#F8FAFC',",
-      "  text: '#1E293B',",
-      "  textSecondary: '#64748B',",
-      "  success: '#10B981',",
-      "  radius: 12,",
-      "};",
-      "",
-      "// 📱 Navigation Header Component",
-      "const NavigationHeader = ({ title, showSearch = true }) => {",
-      "  return (",
-      "    <LinearGradient",
-      "      colors={[AppTheme.primary, AppTheme.secondary]}",
-      "      style={styles.navigationHeader}",
-      "    >",
-      "      <Text style={styles.navigationTitle}>{title}</Text>",
-      "      {showSearch && (",
-      "        <TouchableOpacity style={styles.searchButton}>",
-      "          <Text style={styles.searchIcon}>🔍</Text>",
-      "        </TouchableOpacity>",
-      "      )}",
-      "    </LinearGradient>",
-      "  );",
-      "};",
-      "",
-      "// 🏪 Product Card Component",
-      "const ProductCard = ({ product, onPress }) => {",
-      "  return (",
-      "    <TouchableOpacity style={styles.productCard} onPress={onPress}>",
-      "      <View style={styles.productImageContainer}>",
-      "        <View style={styles.productImagePlaceholder}>",
-      "          <Text style={styles.productImageIcon}>📦</Text>",
-      "        </View>",
-      "        <TouchableOpacity style={styles.wishlistButton}>",
-      "          <Text style={styles.wishlistIcon}>🤍</Text>",
-      "        </TouchableOpacity>",
-      "      </View>",
-      "      <View style={styles.productInfo}>",
-      "        <Text style={styles.productName} numberOfLines={2}>",
-      "          {product.name}",
-      "        </Text>",
-      "        <View style={styles.productRating}>",
-      "          <Text style={styles.ratingStars}>⭐⭐⭐⭐⭐</Text>",
-      "          <Text style={styles.ratingText}>(4.8)</Text>",
-      "        </View>",
-      "        <Text style={styles.productPrice}>{product.price}</Text>",
-      "      </View>",
-      "    </TouchableOpacity>",
-      "  );",
-      "};",
-      "",
-      "// 🎯 Hero Section Component",
-      "const HeroSection = ({ title, subtitle }) => {",
-      "  return (",
-      "    <LinearGradient",
-      "      colors={['#F8FAFC', '#E2E8F0']}",
-      "      style={styles.heroSection}",
-      "    >",
-      "      <Text style={styles.heroTitle}>{title}</Text>",
-      "      <Text style={styles.heroSubtitle}>{subtitle}</Text>",
-      "      <TouchableOpacity style={styles.heroButton}>",
-      "        <Text style={styles.heroButtonText}>Shop Now</Text>",
-      "      </TouchableOpacity>",
-      "    </LinearGradient>",
-      "  );",
-      "};",
-      "",
-      "// 📂 Category Grid Component",
-      "const CategoryGrid = ({ categories }) => {",
-      "  return (",
-      "    <View style={styles.categorySection}>",
-      "      <Text style={styles.sectionTitle}>Categories</Text>",
-      "      <View style={styles.categoryGrid}>",
-      "        {categories.map((category, index) => (",
-      "          <TouchableOpacity key={index} style={styles.categoryCard}>",
-      "            <Text style={styles.categoryIcon}>🏷️</Text>",
-      "            <Text style={styles.categoryName}>{category.name}</Text>",
-      "            <Text style={styles.categoryCount}>{category.count} items</Text>",
-      "          </TouchableOpacity>",
-      "        ))}",
-      "      </View>",
-      "    </View>",
-      "  );",
-      "};",
-      "",
-      "// 🏠 Main App Component",
-      "const MobileApp = () => {",
-      "  const sampleProducts = [",
-      "    { name: 'Premium Wireless Headphones', price: '$299.99', rating: 4.8 },",
-      "    { name: 'Smart Fitness Tracker', price: '$199.99', rating: 4.6 },",
-      "    { name: 'Portable Bluetooth Speaker', price: '$89.99', rating: 4.9 },",
-      "    { name: 'Wireless Charging Pad', price: '$49.99', rating: 4.7 },",
-      "  ];",
-      "",
-      "  const categories = [",
-      "    { name: 'Electronics', count: 156, icon: '📱' },",
-      "    { name: 'Fashion', count: 234, icon: '👕' },",
-      "    { name: 'Home & Garden', count: 89, icon: '🏡' },",
-      "    { name: 'Sports', count: 67, icon: '⚽' },",
-      "  ];",
-      "",
-      "  return (",
-      "    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>",
-      "      <NavigationHeader title='Your Store' />",
-      "      ",
-      "      <HeroSection ",
-      "        title='Welcome to Your Store'",
-      "        subtitle='Discover amazing products at great prices'",
-      "      />",
-      "",
-      "      <CategoryGrid categories={categories} />",
-      "",
-      "      <View style={styles.productsSection}>",
-      "        <Text style={styles.sectionTitle}>Featured Products</Text>",
-      "        <View style={styles.productsGrid}>",
-      "          {sampleProducts.map((product, index) => (",
-      "            <ProductCard ",
-      "              key={index} ",
-      "              product={product}",
-      "              onPress={() => console.log('Product pressed:', product.name)}",
-      "            />",
-      "          ))}",
-      "        </View>",
-      "      </View>",
-      "",
-      "      <View style={styles.bottomSpacing} />",
-      "    </ScrollView>",
-      "  );",
-      "};",
-      "",
-      "// 🎨 Comprehensive Styling",
-      "const styles = StyleSheet.create({",
-      "  container: {",
-      "    flex: 1,",
-      "    backgroundColor: AppTheme.background,",
-      "  },",
-      "  ",
-      "  // Navigation Styles",
-      "  navigationHeader: {",
-      "    flexDirection: 'row',",
-      "    justifyContent: 'space-between',",
-      "    alignItems: 'center',",
-      "    paddingHorizontal: 20,",
-      "    paddingVertical: 16,",
-      "    paddingTop: 50,",
-      "  },",
-      "  navigationTitle: {",
-      "    fontSize: 24,",
-      "    fontWeight: '700',",
-      "    color: 'white',",
-      "  },",
-      "  searchButton: {",
-      "    padding: 8,",
-      "    borderRadius: 20,",
-      "    backgroundColor: 'rgba(255,255,255,0.2)',",
-      "  },",
-      "  searchIcon: {",
-      "    fontSize: 16,",
-      "  },",
-      "",
-      "  // Hero Section Styles",
-      "  heroSection: {",
-      "    padding: 24,",
-      "    alignItems: 'center',",
-      "    marginBottom: 20,",
-      "  },",
-      "  heroTitle: {",
-      "    fontSize: 28,",
-      "    fontWeight: '800',",
-      "    color: AppTheme.text,",
-      "    textAlign: 'center',",
-      "    marginBottom: 8,",
-      "  },",
-      "  heroSubtitle: {",
-      "    fontSize: 16,",
-      "    color: AppTheme.textSecondary,",
-      "    textAlign: 'center',",
-      "    marginBottom: 20,",
-      "  },",
-      "  heroButton: {",
-      "    backgroundColor: AppTheme.primary,",
-      "    paddingHorizontal: 32,",
-      "    paddingVertical: 12,",
-      "    borderRadius: AppTheme.radius,",
-      "  },",
-      "  heroButtonText: {",
-      "    color: 'white',",
-      "    fontSize: 16,",
-      "    fontWeight: '600',",
-      "  },",
-      "",
-      "  // Product Styles",
-      "  productsSection: {",
-      "    paddingHorizontal: 16,",
-      "    marginBottom: 20,",
-      "  },",
-      "  sectionTitle: {",
-      "    fontSize: 22,",
-      "    fontWeight: '700',",
-      "    color: AppTheme.text,",
-      "    marginBottom: 16,",
-      "  },",
-      "  productsGrid: {",
-      "    flexDirection: 'row',",
-      "    flexWrap: 'wrap',",
-      "    justifyContent: 'space-between',",
-      "  },",
-      "  productCard: {",
-      "    width: '48%',",
-      "    backgroundColor: AppTheme.surface,",
-      "    borderRadius: AppTheme.radius,",
-      "    marginBottom: 16,",
-      "    shadowColor: '#000',",
-      "    shadowOffset: { width: 0, height: 2 },",
-      "    shadowOpacity: 0.1,",
-      "    shadowRadius: 4,",
-      "    elevation: 3,",
-      "  },",
-      "  productImageContainer: {",
-      "    position: 'relative',",
-      "  },",
-      "  productImagePlaceholder: {",
-      "    height: 120,",
-      "    backgroundColor: '#E2E8F0',",
-      "    borderTopLeftRadius: AppTheme.radius,",
-      "    borderTopRightRadius: AppTheme.radius,",
-      "    justifyContent: 'center',",
-      "    alignItems: 'center',",
-      "  },",
-      "  productImageIcon: {",
-      "    fontSize: 32,",
-      "  },",
-      "  wishlistButton: {",
-      "    position: 'absolute',",
-      "    top: 8,",
-      "    right: 8,",
-      "    backgroundColor: 'white',",
-      "    borderRadius: 20,",
-      "    padding: 6,",
-      "  },",
-      "  wishlistIcon: {",
-      "    fontSize: 14,",
-      "  },",
-      "  productInfo: {",
-      "    padding: 12,",
-      "  },",
-      "  productName: {",
-      "    fontSize: 14,",
-      "    fontWeight: '600',",
-      "    color: AppTheme.text,",
-      "    marginBottom: 6,",
-      "  },",
-      "  productRating: {",
-      "    flexDirection: 'row',",
-      "    alignItems: 'center',",
-      "    marginBottom: 6,",
-      "  },",
-      "  ratingStars: {",
-      "    fontSize: 12,",
-      "    marginRight: 4,",
-      "  },",
-      "  ratingText: {",
-      "    fontSize: 12,",
-      "    color: AppTheme.textSecondary,",
-      "  },",
-      "  productPrice: {",
-      "    fontSize: 16,",
-      "    fontWeight: '700',",
-      "    color: AppTheme.primary,",
-      "  },",
-      "",
-      "  // Category Styles",
-      "  categorySection: {",
-      "    paddingHorizontal: 16,",
-      "    marginBottom: 20,",
-      "  },",
-      "  categoryGrid: {",
-      "    flexDirection: 'row',",
-      "    flexWrap: 'wrap',",
-      "    justifyContent: 'space-between',",
-      "  },",
-      "  categoryCard: {",
-      "    width: '48%',",
-      "    backgroundColor: AppTheme.surface,",
-      "    borderRadius: AppTheme.radius,",
-      "    padding: 16,",
-      "    alignItems: 'center',",
-      "    marginBottom: 12,",
-      "  },",
-      "  categoryIcon: {",
-      "    fontSize: 24,",
-      "    marginBottom: 8,",
-      "  },",
-      "  categoryName: {",
-      "    fontSize: 14,",
-      "    fontWeight: '600',",
-      "    color: AppTheme.text,",
-      "    marginBottom: 4,",
-      "  },",
-      "  categoryCount: {",
-      "    fontSize: 12,",
-      "    color: AppTheme.textSecondary,",
-      "  },",
-      "",
-      "  bottomSpacing: {",
-      "    height: 40,",
-      "  },",
-      "});",
-      "",
-      "export default MobileApp;",
-      "",
-      "// ✅ App generation complete!"
-    ];
+    const totalChars = codeTemplate.length;
 
-    const generationPhases = [
-      { name: "analyzing", duration: 1500, message: "Analyzing your requirements and store data..." },
-      { name: "designing", duration: 2000, message: "Designing app architecture and UI components..." },
-      { name: "coding", duration: 6000, message: "Writing React Native components..." },
-      { name: "optimizing", duration: 1500, message: "Optimizing performance and styling..." }
-    ];
-
-    let currentPhaseIndex = 0;
-    let phaseStartTime = Date.now();
-
-    const updatePhase = () => {
-      const elapsed = Date.now() - phaseStartTime;
-      const currentPhase = generationPhases[currentPhaseIndex];
-      
-      if (elapsed >= currentPhase.duration) {
-        currentPhaseIndex++;
-        phaseStartTime = Date.now();
+    const typeNextCharacter = () => {
+      if (charIndex >= totalChars) {
+        // Generation complete
+        setGenerationPhase("complete");
+        setCurrentStep("Generation complete!");
+        setProgress(100);
+        setCompletedFiles(["App.tsx", "styles.js", "components/"]);
         
-        if (currentPhaseIndex < generationPhases.length) {
-          setGenerationPhase(generationPhases[currentPhaseIndex].name as any);
-          setCurrentStep(generationPhases[currentPhaseIndex].message);
-        } else {
-          setGenerationPhase("complete");
-          setCurrentStep("Generation complete!");
-          setProgress(100);
-          
-          onComplete?.({
-            appName: "Your Generated App",
-            primaryColor: "#6366F1",
-            layout: {
-              heroSection: { 
-                title: "Welcome to Your Store", 
-                subtitle: "Discover amazing products at great prices",
-                showHero: true,
-                backgroundType: "gradient"
-              },
-              productDisplay: { 
-                gridColumns: 2,
-                showRatings: true, 
-                showWishlist: true,
-                showPrices: true
-              },
-              categories: { 
-                showCategories: true,
-                displayStyle: "grid"
-              }
+        onComplete?.({
+          appName: "Your Generated App",
+          primaryColor: "#6366F1",
+          layout: {
+            heroSection: { 
+              title: "Welcome to Your Store", 
+              subtitle: "Discover amazing products at unbeatable prices",
+              showHero: true,
+              backgroundType: "gradient"
             },
-            previewData: {
-              featuredProducts: [
-                { name: "Premium Wireless Headphones", price: "$299.99" },
-                { name: "Smart Fitness Tracker", price: "$199.99" },
-                { name: "Portable Bluetooth Speaker", price: "$89.99" },
-                { name: "Wireless Charging Pad", price: "$49.99" }
-              ],
-              categories: [
-                { name: "Electronics", count: 156 },
-                { name: "Fashion", count: 234 },
-                { name: "Home & Garden", count: 89 },
-                { name: "Sports", count: 67 }
-              ]
+            productDisplay: { 
+              gridColumns: 2,
+              showRatings: true, 
+              showWishlist: true,
+              showPrices: true
+            },
+            categories: { 
+              showCategories: true,
+              displayStyle: "grid"
             }
-          });
-          return;
-        }
-      }
-      
-      // Update progress
-      const totalDuration = generationPhases.reduce((sum: number, p: any) => sum + p.duration, 0);
-      const elapsedTotal = generationPhases.slice(0, currentPhaseIndex).reduce((sum: number, p: any) => sum + p.duration, 0) + elapsed;
-      setProgress(Math.min(95, (elapsedTotal / totalDuration) * 100));
-      
-      setCurrentStep(currentPhase.message);
-    };
-
-    // Enhanced typing animation with smooth scrolling
-    const typeCode = () => {
-      if (lineIndex >= codeTemplate.length) {
-        updatePhase();
+          },
+          previewData: {
+            featuredProducts: [
+              { name: "Premium Wireless Headphones", price: "$299.99" },
+              { name: "Smart Fitness Tracker", price: "$199.99" },
+              { name: "Portable Bluetooth Speaker", price: "$89.99" },
+              { name: "Wireless Charging Pad", price: "$49.99" }
+            ],
+            categories: [
+              { name: "Electronics", count: 156 },
+              { name: "Fashion", count: 234 },
+              { name: "Home & Garden", count: 89 },
+              { name: "Sports", count: 67 }
+            ]
+          }
+        });
         return;
       }
 
-      const currentLine = codeTemplate[lineIndex];
-      
-      if (charIndex >= currentLine.length) {
-        // Complete current line and move to next
-        setCodeLines(prev => [...prev, currentTypingLine]);
-        setCurrentTypingLine("");
-        setCurrentLineIndex(lineIndex + 1);
-        lineIndex++;
-        charIndex = 0;
-        
-        // Smooth scroll to follow the cursor
-        setTimeout(() => {
-          if (codeContainerRef.current) {
-            const container = codeContainerRef.current;
-            const lineHeight = 24; // Line height in pixels
-            const scrollTop = Math.max(0, (lineIndex - 10) * lineHeight); // Keep 10 lines visible above cursor
-            container.scrollTo({
-              top: scrollTop,
-              behavior: 'smooth'
-            });
-          }
-        }, 50);
+      // Update current phase based on progress
+      const progressPercent = (charIndex / totalChars) * 100;
+      if (progressPercent < 20) {
+        setGenerationPhase("analyzing");
+        setCurrentStep("Analyzing your Shopify store data...");
+      } else if (progressPercent < 35) {
+        setGenerationPhase("designing");
+        setCurrentStep("Designing UI components and layout...");
+      } else if (progressPercent < 85) {
+        setGenerationPhase("coding");
+        setCurrentStep("Writing React Native components...");
       } else {
-        // Continue typing current line
-        setCurrentTypingLine(currentLine.substring(0, charIndex + 1));
-        charIndex++;
-        setCurrentLineIndex(lineIndex);
+        setGenerationPhase("optimizing");
+        setCurrentStep("Optimizing performance and styles...");
       }
+
+      // Add next character
+      const nextChar = codeTemplate[charIndex];
+      setDisplayedCode(prev => prev + nextChar);
       
-      updatePhase();
+      // Update line counter
+      if (nextChar === '\n') {
+        setCurrentLine(prev => prev + 1);
+      }
+
+      // Update progress
+      setProgress((charIndex / totalChars) * 100);
+      
+      charIndex++;
+
+      // Variable typing speed for realism
+      const delay = nextChar === '\n' ? 100 : 
+                   nextChar === ' ' ? 80 : 
+                   Math.random() * 60 + 20;
+
+      timeoutRef.current = setTimeout(typeNextCharacter, delay);
     };
 
-    // Control typing speed based on phase and content
-    const getTypingSpeed = () => {
-      const speeds: Record<string, number> = {
-        analyzing: 120,
-        designing: 90,
-        coding: 35,
-        optimizing: 70,
-        complete: 50,
-      };
-      const baseSpeed = speeds[generationPhase] || 50;
-      
-      // Vary speed based on content being typed
-      const currentLine = codeTemplate[lineIndex] || "";
-      if (currentLine.startsWith("//")) return baseSpeed + 20; // Comments slower
-      if (currentLine.includes("import") || currentLine.includes("export")) return baseSpeed - 10; // Imports faster
-      if (currentLine.trim() === "") return 20; // Empty lines very fast
-      if (currentLine.includes("{") || currentLine.includes("}")) return baseSpeed + 15; // Braces slower
-      
-      return baseSpeed;
-    };
-
-    const interval = setInterval(typeCode, getTypingSpeed());
-    
-    // Cursor blinking
-    const cursorInterval = setInterval(() => {
-      setShowCursor(prev => !prev);
-    }, 500);
+    // Start typing after initial delay
+    timeoutRef.current = setTimeout(typeNextCharacter, 1000);
 
     return () => {
-      clearInterval(interval);
-      clearInterval(cursorInterval);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
-  }, [isGenerating, generationPhase, onComplete]);
+  }, [isGenerating, onComplete, codeTemplate]);
 
-  const getPhaseIcon = (phase: string) => {
-    switch (phase) {
-      case "analyzing": return <Cpu className="w-4 h-4 animate-pulse" />;
-      case "designing": return <Eye className="w-4 h-4 animate-bounce" />;
-      case "coding": return <Code className="w-4 h-4 animate-spin" />;
-      case "optimizing": return <Zap className="w-4 h-4 animate-pulse" />;
-      case "complete": return <CheckCircle className="w-4 h-4 text-green-500" />;
-      default: return <Clock className="w-4 h-4" />;
+  const getPhaseIcon = () => {
+    switch (generationPhase) {
+      case "analyzing": return <Cpu className="h-4 w-4" />;
+      case "designing": return <Eye className="h-4 w-4" />;
+      case "coding": return <Code className="h-4 w-4" />;
+      case "optimizing": return <Zap className="h-4 w-4" />;
+      case "complete": return <CheckCircle className="h-4 w-4" />;
     }
   };
 
-  const getPhaseColor = (phase: string) => {
-    switch (phase) {
-      case "analyzing": return "bg-blue-100 text-blue-700";
-      case "designing": return "bg-purple-100 text-purple-700";
-      case "coding": return "bg-green-100 text-green-700";
-      case "optimizing": return "bg-yellow-100 text-yellow-700";
-      case "complete": return "bg-emerald-100 text-emerald-700";
-      default: return "bg-gray-100 text-gray-700";
+  const getPhaseColor = () => {
+    switch (generationPhase) {
+      case "analyzing": return "bg-blue-500";
+      case "designing": return "bg-purple-500";
+      case "coding": return "bg-green-500";
+      case "optimizing": return "bg-orange-500";
+      case "complete": return "bg-emerald-500";
     }
   };
 
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Terminal className="w-5 h-5" />
-            Live Code Generation
-          </CardTitle>
-          {isGenerating && (
-            <Badge variant="secondary" className={`${getPhaseColor(generationPhase)} animate-pulse`}>
-              {getPhaseIcon(generationPhase)}
-              <span className="ml-2 capitalize">{generationPhase}</span>
-            </Badge>
-          )}
-        </div>
-        
-        {isGenerating && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>{currentStep}</span>
-              <span>{Math.round(progress)}%</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Lines per second: ~{linesPerSecond}</span>
-            </div>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2">
+          <Terminal className="h-5 w-5" />
+          Live Code Generation
+        </CardTitle>
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className={`${getPhaseColor()} text-white`}>
+            {getPhaseIcon()}
+            <span className="ml-1 capitalize">{generationPhase}</span>
+          </Badge>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            Line {currentLine}
           </div>
-        )}
+        </div>
       </CardHeader>
-      
-      <CardContent className="p-0">
-        <Tabs defaultValue="code" className="h-full">
-          <TabsList className="mx-6 mb-4">
-            <TabsTrigger value="code" className="flex items-center gap-2">
-              <Code className="w-4 h-4" />
-              Live Code
+
+      <CardContent className="flex-1 flex flex-col gap-4">
+        {/* Progress */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">{currentStep}</span>
+            <span className="font-medium">{Math.round(progress)}%</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+
+        {/* File Tabs */}
+        <Tabs value={activeFile} onValueChange={setActiveFile} className="flex-1 flex flex-col">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="App.tsx" className="flex items-center gap-1">
+              <FileCode className="h-3 w-3" />
+              App.tsx
             </TabsTrigger>
-            <TabsTrigger value="preview" className="flex items-center gap-2">
-              <Eye className="w-4 h-4" />
+            <TabsTrigger value="styles.js" className="flex items-center gap-1">
+              <Code className="h-3 w-3" />
+              Styles
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="flex items-center gap-1">
+              <Smartphone className="h-3 w-3" />
               Preview
             </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="code" className="h-[500px] mx-6">
-            <div 
-              ref={codeContainerRef}
-              className="h-full bg-gray-900 rounded-lg p-4 font-mono text-sm overflow-auto scroll-smooth"
-              style={{ scrollBehavior: 'smooth' }}
-            >
-              {/* Line numbers and code content */}
-              <div className="flex">
-                {/* Line numbers */}
-                <div className="text-gray-500 text-right pr-4 select-none min-w-[3rem] flex-shrink-0">
-                  {codeLines.map((_, index) => (
-                    <div key={index} className="leading-6 h-6">
-                      {index + 1}
-                    </div>
-                  ))}
-                  {/* Current line number */}
-                  {isGenerating && currentTypingLine && (
-                    <div className="leading-6 h-6 text-blue-400 font-bold">
-                      {currentLineIndex + 1}
-                    </div>
+
+          <TabsContent value="App.tsx" className="flex-1 mt-4">
+            <ScrollArea className="h-[400px] w-full border rounded-lg" ref={scrollRef}>
+              <div className="p-4 font-mono text-sm bg-gray-950 text-gray-100">
+                <pre className="whitespace-pre-wrap">
+                  {displayedCode}
+                  {showCursor && isGenerating && (
+                    <span className="bg-blue-400 text-blue-400 animate-pulse">|</span>
                   )}
-                </div>
-                
-                {/* Code content */}
-                <div className="flex-1">
-                  {codeLines.map((line, index) => (
-                    <div 
-                      key={index}
-                      className={`leading-6 h-6 ${
-                        line && line.startsWith("//") ? "text-gray-400 italic" : 
-                        line && (line.includes("import") || line.includes("export")) ? "text-blue-300" :
-                        line && (line.includes("const") || line.includes("function")) ? "text-purple-300" :
-                        line && line.includes("styles") ? "text-yellow-300" :
-                        line && (line.includes("=") || line.includes(":")) ? "text-green-300" :
-                        line && (line.includes("(") || line.includes(")")) ? "text-orange-300" :
-                        "text-gray-100"
-                      }`}
-                    >
-                      {line || "\u00A0"}
-                    </div>
-                  ))}
-                  
-                  {/* Current typing line with animated cursor */}
-                  {isGenerating && (
-                    <div className="leading-6 h-6 flex items-center">
-                      <span className={`${
-                        currentTypingLine && currentTypingLine.startsWith("//") ? "text-gray-400 italic" : 
-                        currentTypingLine && (currentTypingLine.includes("import") || currentTypingLine.includes("export")) ? "text-blue-300" :
-                        currentTypingLine && (currentTypingLine.includes("const") || currentTypingLine.includes("function")) ? "text-purple-300" :
-                        currentTypingLine && currentTypingLine.includes("styles") ? "text-yellow-300" :
-                        currentTypingLine && (currentTypingLine.includes("=") || currentTypingLine.includes(":")) ? "text-green-300" :
-                        currentTypingLine && (currentTypingLine.includes("(") || currentTypingLine.includes(")")) ? "text-orange-300" :
-                        "text-gray-100"
-                      }`}>
-                        {currentTypingLine}
-                      </span>
-                      {showCursor && (
-                        <span className="bg-blue-400 w-2 h-5 inline-block ml-1 animate-pulse rounded-sm"></span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Empty lines for better visibility */}
-                  {isGenerating && (
-                    <div className="h-32"></div>
-                  )}
-                </div>
+                </pre>
               </div>
-              
-              <div ref={scrollRef} />
-            </div>
+            </ScrollArea>
           </TabsContent>
-          
-          <TabsContent value="preview" className="h-[500px] mx-6">
-            <div className="flex items-center justify-center h-full bg-gray-50 rounded-lg">
-              {generationPhase === "complete" ? (
-                <div className="text-center">
-                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Code Generation Complete!</h3>
-                  <p className="text-gray-600">Your mobile app code is ready for deployment.</p>
-                </div>
-              ) : isGenerating ? (
-                <div className="text-center">
-                  <Loader2 className="w-16 h-16 text-blue-500 animate-spin mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Generating Your App...</h3>
-                  <p className="text-gray-600">Please wait while we create your mobile app.</p>
+
+          <TabsContent value="styles.js" className="flex-1 mt-4">
+            <ScrollArea className="h-[400px] w-full border rounded-lg">
+              <div className="p-4 font-mono text-sm bg-gray-950 text-gray-100">
+                <pre className="whitespace-pre-wrap text-gray-400">
+                  {isGenerating ? "// Styles will be generated..." : "// StyleSheet definitions included in main file"}
+                </pre>
+              </div>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="preview" className="flex-1 mt-4">
+            <div className="h-[400px] w-full border rounded-lg bg-gray-50 flex items-center justify-center">
+              {isGenerating ? (
+                <div className="text-center space-y-2">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                  <p className="text-sm text-muted-foreground">Building preview...</p>
                 </div>
               ) : (
-                <div className="text-center">
-                  <Code className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Generate</h3>
-                  <p className="text-gray-600">Start app generation to see live code creation.</p>
+                <div className="text-center space-y-2">
+                  <Smartphone className="h-8 w-8 mx-auto text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Preview will appear here</p>
                 </div>
               )}
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Completed Files */}
+        {completedFiles.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Generated Files:</h4>
+            <div className="flex flex-wrap gap-2">
+              {completedFiles.map((file, index) => (
+                <Badge key={index} variant="secondary" className="text-xs">
+                  <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                  {file}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

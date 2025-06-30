@@ -116,6 +116,8 @@ The application uses three main entities:
 - June 30, 2025: Added Shopify sync functionality and real store data display
 - June 30, 2025: Enhanced code generation with line-by-line cursor movement and smooth scrolling
 - June 30, 2025: Implemented app modification functionality allowing users to modify generated apps through natural language prompts
+- June 30, 2025: Enhanced live code generation viewer with real React Native code typing animation and file tabs
+- June 30, 2025: Created interactive mobile preview with working cart, wishlist, and multi-screen navigation like Replit's preview system
 
 ## Current Status
 
