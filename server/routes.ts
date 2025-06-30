@@ -275,6 +275,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Modify existing app with AI
+  app.post('/api/apps/:id/modify', isAuthenticated, async (req: any, res) => {
+    try {
+      const appId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      const { modificationPrompt } = req.body;
+      
+      if (!modificationPrompt || typeof modificationPrompt !== "string") {
+        return res.status(400).json({ message: "Modification prompt is required" });
+      }
+
+      // Get existing app
+      const existingApp = await storage.getGeneratedApp(appId);
+      if (!existingApp) {
+        return res.status(404).json({ message: "App not found" });
+      }
+
+      // Ensure user owns this app
+      if (existingApp.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (!existingApp.appConfig) {
+        return res.status(400).json({ message: "App configuration not found" });
+      }
+
+      // Get store data if available
+      let storeData;
+      if (existingApp.storeId) {
+        const store = await storage.getShopifyStore(userId);
+        if (store && store.storeData) {
+          const storeDataObj = store.storeData as any;
+          storeData = {
+            shopName: store.shopName,
+            productCount: store.productCount || 0,
+            collectionCount: store.collectionCount || 0,
+            orderCount: store.orderCount || 0,
+            realProducts: storeDataObj.products || [],
+            realCollections: storeDataObj.collections || [],
+            storeInfo: storeDataObj.store || {}
+          };
+        }
+      }
+
+      // Create modification request
+      const modification = await storage.createAppModification({
+        appId: appId,
+        userId: userId,
+        modificationPrompt,
+        status: "processing",
+        previousConfig: existingApp.appConfig
+      });
+
+      // Update app status to processing
+      await storage.updateGeneratedApp(appId, {
+        status: "processing"
+      });
+
+      // Generate modified config with AI
+      try {
+        const { modifyMobileApp } = await import("./gemini.ts");
+        const newConfig = await modifyMobileApp(
+          existingApp.appConfig as any,
+          modificationPrompt,
+          storeData
+        );
+
+        // Update the app with new configuration
+        const updatedApp = await storage.updateGeneratedApp(appId, {
+          appConfig: newConfig,
+          status: "ready"
+        });
+
+        // Update modification status
+        await storage.updateAppModification(modification.id, {
+          status: "completed",
+          newConfig: newConfig
+        });
+
+        res.json(updatedApp);
+      } catch (aiError) {
+        console.error("AI modification error:", aiError);
+        
+        // Update modification status to failed
+        await storage.updateAppModification(modification.id, {
+          status: "failed"
+        });
+
+        // Revert app status
+        await storage.updateGeneratedApp(appId, {
+          status: "ready"
+        });
+
+        res.status(500).json({ message: "Failed to generate app modifications" });
+      }
+    } catch (error) {
+      console.error("Error modifying app:", error);
+      res.status(500).json({ message: "Failed to modify app" });
+    }
+  });
+
+  // Get modification history for an app
+  app.get('/api/apps/:id/modifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const appId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+
+      // Verify app exists and user owns it
+      const app = await storage.getGeneratedApp(appId);
+      if (!app) {
+        return res.status(404).json({ message: "App not found" });
+      }
+      
+      if (app.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const modifications = await storage.getAppModifications(appId);
+      res.json(modifications);
+    } catch (error) {
+      console.error("Error fetching modifications:", error);
+      res.status(500).json({ message: "Failed to fetch modifications" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

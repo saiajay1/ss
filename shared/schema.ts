@@ -74,6 +74,20 @@ export const generatedApps = pgTable("generated_apps", {
   status: varchar("status").notNull().default("processing"), // processing, ready, failed
   previewData: jsonb("preview_data"),
   appConfig: jsonb("app_config"),
+  version: integer("version").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// App modification requests table
+export const appModifications = pgTable("app_modifications", {
+  id: serial("id").primaryKey(),
+  appId: integer("app_id").notNull().references(() => generatedApps.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  modificationPrompt: text("modification_prompt").notNull(),
+  status: varchar("status").notNull().default("processing"), // processing, completed, failed
+  previousConfig: jsonb("previous_config"),
+  newConfig: jsonb("new_config"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -92,7 +106,7 @@ export const shopifyStoresRelations = relations(shopifyStores, ({ one, many }) =
   generatedApps: many(generatedApps),
 }));
 
-export const generatedAppsRelations = relations(generatedApps, ({ one }) => ({
+export const generatedAppsRelations = relations(generatedApps, ({ one, many }) => ({
   user: one(users, {
     fields: [generatedApps.userId],
     references: [users.id],
@@ -100,6 +114,18 @@ export const generatedAppsRelations = relations(generatedApps, ({ one }) => ({
   store: one(shopifyStores, {
     fields: [generatedApps.storeId],
     references: [shopifyStores.id],
+  }),
+  modifications: many(appModifications),
+}));
+
+export const appModificationsRelations = relations(appModifications, ({ one }) => ({
+  app: one(generatedApps, {
+    fields: [appModifications.appId],
+    references: [generatedApps.id],
+  }),
+  user: one(users, {
+    fields: [appModifications.userId],
+    references: [users.id],
   }),
 }));
 
@@ -112,6 +138,13 @@ export const insertShopifyStoreSchema = createInsertSchema(shopifyStores).omit({
 
 export const insertGeneratedAppSchema = createInsertSchema(generatedApps).omit({
   id: true,
+  version: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAppModificationSchema = createInsertSchema(appModifications).omit({
+  id: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -123,3 +156,5 @@ export type InsertShopifyStore = z.infer<typeof insertShopifyStoreSchema>;
 export type ShopifyStore = typeof shopifyStores.$inferSelect;
 export type InsertGeneratedApp = z.infer<typeof insertGeneratedAppSchema>;
 export type GeneratedApp = typeof generatedApps.$inferSelect;
+export type InsertAppModification = z.infer<typeof insertAppModificationSchema>;
+export type AppModification = typeof appModifications.$inferSelect;

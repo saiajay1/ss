@@ -114,6 +114,8 @@ The application uses three main entities:
 - June 30, 2025: Implemented complete Shopify data integration with real product/collection import
 - June 30, 2025: Enhanced code generation viewer with professional live typing animations
 - June 30, 2025: Added Shopify sync functionality and real store data display
+- June 30, 2025: Enhanced code generation with line-by-line cursor movement and smooth scrolling
+- June 30, 2025: Implemented app modification functionality allowing users to modify generated apps through natural language prompts
 
 ## Current Status
 

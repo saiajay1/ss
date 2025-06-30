@@ -1,9 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize GoogleGenAI with API key
-const ai = new GoogleGenAI({
-  apiKey: process.env.GOOGLE_API_KEY || "",
-  vertexai: false
+// Initialize GoogleGenAI with API key  
+const genAI = new GoogleGenAI({
+  apiKey: process.env.GOOGLE_API_KEY || ""
 });
 
 export interface AppGenerationRequest {
@@ -102,6 +101,181 @@ export interface GeneratedAppConfig {
       count: number;
     }>;
   };
+}
+
+export async function modifyMobileApp(
+  currentConfig: GeneratedAppConfig,
+  modificationPrompt: string,
+  storeData?: AppGenerationRequest['storeData']
+): Promise<GeneratedAppConfig> {
+  try {
+    const prompt = `
+You are an expert mobile app designer. You have been given an existing mobile app configuration and a modification request. Please modify the app configuration based on the user's request while maintaining consistency and good design principles.
+
+Current App Configuration:
+${JSON.stringify(currentConfig, null, 2)}
+
+Modification Request:
+"${modificationPrompt}"
+
+${storeData ? `
+Store Data Available:
+- Shop Name: ${storeData.shopName}
+- Products: ${storeData.productCount}
+- Collections: ${storeData.collectionCount}
+- Orders: ${storeData.orderCount}
+${storeData.realProducts ? `
+Real Products:
+${storeData.realProducts.slice(0, 5).map(p => `- ${p.title} (${p.vendor}) - $${p.variants[0]?.price || 'N/A'}`).join('\n')}
+` : ''}
+${storeData.realCollections ? `
+Real Collections:
+${storeData.realCollections.slice(0, 5).map(c => `- ${c.title} (${c.products_count} products)`).join('\n')}
+` : ''}
+` : ''}
+
+Please return ONLY a valid JSON object that represents the updated app configuration. Make targeted changes based on the modification request while preserving the overall structure and any unrelated settings.
+
+The JSON should follow this exact structure:
+{
+  "appName": "string",
+  "primaryColor": "string (hex color)",
+  "theme": {
+    "primaryColor": "string (hex color)",
+    "fontFamily": "string",
+    "borderRadius": "string"
+  },
+  "navigation": {
+    "showBottomNav": boolean,
+    "showSearch": boolean,
+    "showCart": boolean,
+    "tabs": [
+      {
+        "name": "string",
+        "icon": "string",
+        "route": "string"
+      }
+    ]
+  },
+  "layout": {
+    "heroSection": {
+      "title": "string",
+      "subtitle": "string",
+      "showHero": boolean,
+      "backgroundType": "color" | "gradient"
+    },
+    "productDisplay": {
+      "gridColumns": number,
+      "showPrices": boolean,
+      "showRatings": boolean,
+      "showWishlist": boolean
+    },
+    "categories": {
+      "showCategories": boolean,
+      "displayStyle": "grid" | "list" | "carousel"
+    }
+  },
+  "features": {
+    "wishlist": boolean,
+    "reviews": boolean,
+    "filters": boolean,
+    "notifications": boolean,
+    "userAccount": boolean,
+    "socialSharing": boolean
+  },
+  "previewData": {
+    "featuredProducts": [
+      {
+        "name": "string",
+        "price": "string",
+        "image": "string (optional)"
+      }
+    ],
+    "categories": [
+      {
+        "name": "string",
+        "count": number
+      }
+    ]
+  }
+}`;
+
+    const response = await genAI.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: [{ parts: [{ text: prompt }] }],
+    });
+    
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    console.log('Raw Gemini modification response:', text);
+
+    // Extract JSON from response
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No valid JSON found in Gemini response');
+    }
+
+    let appConfig: GeneratedAppConfig;
+    try {
+      appConfig = JSON.parse(jsonMatch[0].replace(/```json|```/g, '').trim());
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
+      throw new Error('Failed to parse Gemini response as JSON');
+    }
+
+    // Validate and ensure all required fields exist
+    const validatedConfig: GeneratedAppConfig = {
+      appName: appConfig.appName || currentConfig.appName,
+      primaryColor: appConfig.primaryColor || currentConfig.primaryColor,
+      theme: {
+        primaryColor: appConfig.theme?.primaryColor || appConfig.primaryColor || currentConfig.theme.primaryColor,
+        fontFamily: appConfig.theme?.fontFamily || currentConfig.theme.fontFamily,
+        borderRadius: appConfig.theme?.borderRadius || currentConfig.theme.borderRadius,
+      },
+      navigation: {
+        showBottomNav: appConfig.navigation?.showBottomNav ?? currentConfig.navigation.showBottomNav,
+        showSearch: appConfig.navigation?.showSearch ?? currentConfig.navigation.showSearch,
+        showCart: appConfig.navigation?.showCart ?? currentConfig.navigation.showCart,
+        tabs: appConfig.navigation?.tabs || currentConfig.navigation.tabs,
+      },
+      layout: {
+        heroSection: {
+          title: appConfig.layout?.heroSection?.title || currentConfig.layout.heroSection.title,
+          subtitle: appConfig.layout?.heroSection?.subtitle || currentConfig.layout.heroSection.subtitle,
+          showHero: appConfig.layout?.heroSection?.showHero ?? currentConfig.layout.heroSection.showHero,
+          backgroundType: appConfig.layout?.heroSection?.backgroundType || currentConfig.layout.heroSection.backgroundType,
+        },
+        productDisplay: {
+          gridColumns: appConfig.layout?.productDisplay?.gridColumns || currentConfig.layout.productDisplay.gridColumns,
+          showPrices: appConfig.layout?.productDisplay?.showPrices ?? currentConfig.layout.productDisplay.showPrices,
+          showRatings: appConfig.layout?.productDisplay?.showRatings ?? currentConfig.layout.productDisplay.showRatings,
+          showWishlist: appConfig.layout?.productDisplay?.showWishlist ?? currentConfig.layout.productDisplay.showWishlist,
+        },
+        categories: {
+          showCategories: appConfig.layout?.categories?.showCategories ?? currentConfig.layout.categories.showCategories,
+          displayStyle: appConfig.layout?.categories?.displayStyle || currentConfig.layout.categories.displayStyle,
+        },
+      },
+      features: {
+        wishlist: appConfig.features?.wishlist ?? currentConfig.features.wishlist,
+        reviews: appConfig.features?.reviews ?? currentConfig.features.reviews,
+        filters: appConfig.features?.filters ?? currentConfig.features.filters,
+        notifications: appConfig.features?.notifications ?? currentConfig.features.notifications,
+        userAccount: appConfig.features?.userAccount ?? currentConfig.features.userAccount,
+        socialSharing: appConfig.features?.socialSharing ?? currentConfig.features.socialSharing,
+      },
+      previewData: {
+        featuredProducts: appConfig.previewData?.featuredProducts || currentConfig.previewData.featuredProducts,
+        categories: appConfig.previewData?.categories || currentConfig.previewData.categories,
+      },
+    };
+
+    return validatedConfig;
+
+  } catch (error) {
+    console.error('Error modifying mobile app with Gemini:', error);
+    throw new Error('Failed to modify mobile app configuration');
+  }
 }
 
 export async function generateMobileApp(request: AppGenerationRequest): Promise<GeneratedAppConfig> {
@@ -253,12 +427,12 @@ Generate a comprehensive mobile app configuration that matches the business need
     // Use the correct models API for @google/genai v1.7.0
     const prompt = `${systemPrompt}\n\n${userPrompt}\n\nRespond only with valid JSON matching the structure above. No additional text or explanations.`;
     
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash", 
-      contents: prompt,
+    const response = await genAI.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: [{ parts: [{ text: prompt }] }],
     });
     
-    const rawJson = response.text;
+    const rawJson = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     if (!rawJson) {
       throw new Error("Empty response from Gemini model");

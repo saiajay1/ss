@@ -2,12 +2,15 @@ import {
   users,
   shopifyStores,
   generatedApps,
+  appModifications,
   type User,
   type UpsertUser,
   type ShopifyStore,
   type InsertShopifyStore,
   type GeneratedApp,
   type InsertGeneratedApp,
+  type AppModification,
+  type InsertAppModification,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -28,6 +31,11 @@ export interface IStorage {
   createGeneratedApp(app: InsertGeneratedApp): Promise<GeneratedApp>;
   updateGeneratedApp(id: number, updates: Partial<InsertGeneratedApp>): Promise<GeneratedApp>;
   getGeneratedApp(id: number): Promise<GeneratedApp | undefined>;
+  
+  // App modification operations
+  getAppModifications(appId: number): Promise<AppModification[]>;
+  createAppModification(modification: InsertAppModification): Promise<AppModification>;
+  updateAppModification(id: number, updates: Partial<InsertAppModification>): Promise<AppModification>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -110,6 +118,33 @@ export class DatabaseStorage implements IStorage {
       .from(generatedApps)
       .where(eq(generatedApps.id, id));
     return app;
+  }
+
+  async getAppModifications(appId: number): Promise<AppModification[]> {
+    return await db
+      .select()
+      .from(appModifications)
+      .where(eq(appModifications.appId, appId))
+      .orderBy(desc(appModifications.createdAt));
+  }
+
+  async createAppModification(modification: InsertAppModification): Promise<AppModification> {
+    const result = await db
+      .insert(appModifications)
+      .values(modification)
+      .returning();
+    
+    return result[0];
+  }
+
+  async updateAppModification(id: number, updates: Partial<InsertAppModification>): Promise<AppModification> {
+    const result = await db
+      .update(appModifications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(appModifications.id, id))
+      .returning();
+    
+    return result[0];
   }
 }
 
