@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import Sidebar from "@/components/sidebar";
@@ -10,6 +10,7 @@ import { Bell, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
+  const [generatedAppConfig, setGeneratedAppConfig] = useState(null);
   const { toast } = useToast();
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -43,14 +44,14 @@ export default function Dashboard() {
     return null;
   }
 
-  const userInitials = user.firstName && user.lastName 
-    ? `${user.firstName[0]}${user.lastName[0]}`
-    : user.email ? user.email[0].toUpperCase()
+  const userInitials = (user as any)?.firstName && (user as any)?.lastName 
+    ? `${(user as any).firstName[0]}${(user as any).lastName[0]}`
+    : (user as any)?.email ? (user as any).email[0].toUpperCase()
     : "U";
 
-  const userName = user.firstName && user.lastName 
-    ? `${user.firstName} ${user.lastName}`
-    : user.email || "User";
+  const userName = (user as any)?.firstName && (user as any)?.lastName 
+    ? `${(user as any).firstName} ${(user as any).lastName}`
+    : (user as any)?.email || "User";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -109,13 +110,13 @@ export default function Dashboard() {
               {/* App Builder Section */}
               <div className="xl:col-span-2 space-y-6">
                 <ShopifyConnection />
-                <AppBuilder />
+                <AppBuilder onGenerationStart={() => setGeneratedAppConfig(null)} onGenerationComplete={setGeneratedAppConfig} />
                 <GeneratedApps />
               </div>
 
               {/* Mobile Preview */}
               <div className="xl:col-span-1">
-                <MobilePreview />
+                <MobilePreview generatedAppConfig={generatedAppConfig} />
               </div>
             </div>
           </div>

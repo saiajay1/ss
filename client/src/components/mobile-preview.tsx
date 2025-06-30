@@ -3,16 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Smartphone, Code, Signal, Wifi, Battery, Search, ShoppingBag, Home, Grid3X3, Heart, User, Star } from "lucide-react";
 
-export default function MobilePreview() {
+interface MobilePreviewProps {
+  generatedAppConfig?: any;
+}
+
+export default function MobilePreview({ generatedAppConfig }: MobilePreviewProps) {
   const { data: apps } = useQuery({
     queryKey: ["/api/apps"],
     retry: false,
   });
 
-  // Get the most recent ready app for preview
+  // Use generated config if available, otherwise get from apps
   const previewApp = apps && Array.isArray(apps) ? apps.find((app: any) => app.status === "ready") : null;
-  const appConfig = previewApp?.appConfig;
-  const previewData = previewApp?.previewData || {
+  const appConfig = generatedAppConfig || previewApp?.appConfig;
+  const previewData = generatedAppConfig || previewApp?.previewData || {
     appName: "Your App",
     primaryColor: "#4F46E5",
     featuredProducts: [

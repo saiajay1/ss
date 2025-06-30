@@ -8,23 +8,32 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { WandSparkles } from "lucide-react";
+import CodeGenerationViewer from "@/components/code-generation-viewer";
 
-export default function AppBuilder() {
+interface AppBuilderProps {
+  onGenerationStart?: () => void;
+  onGenerationComplete?: (config: any) => void;
+}
+
+export default function AppBuilder({ onGenerationStart, onGenerationComplete }: AppBuilderProps) {
   const [prompt, setPrompt] = useState("");
   const [appName, setAppName] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#4F46E5");
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const generateAppMutation = useMutation({
     mutationFn: async (data: { name: string; prompt: string; primaryColor: string }) => {
+      setIsGenerating(true);
+      onGenerationStart?.();
       const response = await apiRequest("POST", "/api/apps/generate", data);
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "App Generation Started",
-        description: "Your mobile app is being generated. This will take a few moments.",
+        description: "Watch as AI writes your mobile app code in real-time!",
       });
       // Clear form
       setPrompt("");
@@ -34,6 +43,7 @@ export default function AppBuilder() {
       queryClient.invalidateQueries({ queryKey: ["/api/apps"] });
     },
     onError: (error) => {
+      setIsGenerating(false);
       toast({
         title: "Generation Failed",
         description: "Failed to generate your app. Please try again.",
@@ -42,6 +52,15 @@ export default function AppBuilder() {
       console.error("Error generating app:", error);
     },
   });
+
+  const handleGenerationComplete = (appConfig: any) => {
+    setIsGenerating(false);
+    onGenerationComplete?.(appConfig);
+    toast({
+      title: "App Generated Successfully",
+      description: "Your mobile app is ready! Check the preview on the right.",
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,10 +153,10 @@ export default function AppBuilder() {
             </div>
             <Button 
               type="submit" 
-              disabled={generateAppMutation.isPending}
+              disabled={generateAppMutation.isPending || isGenerating}
               className="bg-primary hover:bg-primary/90"
             >
-              {generateAppMutation.isPending ? (
+              {generateAppMutation.isPending || isGenerating ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Generating...
@@ -151,6 +170,14 @@ export default function AppBuilder() {
             </Button>
           </div>
         </form>
+
+        {/* Code Generation Viewer */}
+        <div className="mt-6">
+          <CodeGenerationViewer 
+            isGenerating={isGenerating} 
+            onComplete={handleGenerationComplete}
+          />
+        </div>
       </CardContent>
     </Card>
   );
